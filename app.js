@@ -2,6 +2,29 @@ const { useEffect, useMemo, useRef, useState } = React;
 const { motion, AnimatePresence } = Motion;
 const h = React.createElement;
 
+const ACCESS_KEY = "nyasa-access";
+const PASSWORD_STATE_KEY = "nyasa-password-state";
+const PASSWORD_LOGS_KEY = "nyasa-password-logs";
+
+const PASSWORDS = {
+  "blush-and-breathe": {
+    label: "Blush and Breathe",
+    oneTime: true,
+  },
+  "kiss-me-slower": {
+    label: "Kiss Me Slower",
+    oneTime: true,
+  },
+  "tiny-heart-thief": {
+    label: "Tiny Heart Thief",
+    oneTime: true,
+  },
+  "open-heart-forever": {
+    label: "Open Heart Forever",
+    oneTime: false,
+  },
+};
+
 const navItems = [
   ["Start", "hero"],
   ["Apology", "apology"],
@@ -13,30 +36,42 @@ const navItems = [
 ];
 
 const apologyLines = [
-  "I know I’ve said and done things that hurt you,",
-  "and I’m genuinely sorry for that.",
+  "I know I've said and done things that hurt you,",
+  "and I'm genuinely sorry for that.",
   "Sorry for the things I said to others about you.",
   "Sorry for the misunderstandings.",
   "Sorry for the moments where my actions made things worse instead of better.",
   "Looking back at it now,",
-  "a lot of it could’ve been handled differently.",
+  "a lot of it could've been handled differently.",
 ];
 
 const questions = [
   "Do you still get annoyed when my notification pops up?",
-  "Did you ever think we’d end up like this?",
+  "Did you ever think we'd end up like this?",
   "Would one honest conversation fix things?",
   "Should I stop overthinking every interaction?",
-  "Be honest… am I at least slightly forgiven?",
+  "Be honest... am I at least slightly forgiven?",
 ];
 
 const answerButtons = ["Maybe", "Depends", "Still deciding", "You talk too much"];
 
 const playfulReplies = {
-  Maybe: ["I’ll take a mathematically non-zero chance.", "That sounded almost optimistic. Tiny smile detected."],
-  Depends: ["Fair. Variables exist. I respect the data.", "Conditional forgiveness. Very Nyasa-coded."],
-  "Still deciding": ["The jury is stylishly unavailable.", "I’ll wait. Dramatically, but softly."],
-  "You talk too much": ["Valid criticism. Painfully accurate.", "Okay, reducing word count by 3%. Trying to look cute about it."],
+  Maybe: [
+    "I'll take a mathematically non-zero chance.",
+    "That sounded almost optimistic. Tiny smile detected.",
+  ],
+  Depends: [
+    "Fair. Variables exist. I respect the data.",
+    "Conditional forgiveness. Very Nyasa-coded.",
+  ],
+  "Still deciding": [
+    "The jury is stylishly unavailable.",
+    "I'll wait. Dramatically, but softly.",
+  ],
+  "You talk too much": [
+    "Valid criticism. Painfully accurate.",
+    "Okay, reducing word count by 3%. Trying to look cute about it.",
+  ],
 };
 
 const finalReplies = [
@@ -52,11 +87,109 @@ const polaroids = [
   { id: 3, src: "./nyasa-3.jpg", rotate: -2, y: -4, label: "Photo 03" },
 ];
 
+const scienceLines = [
+  "As a PCM student...\nI think we've been taught the wrong science.",
+  "We were taught that the Sun is the hottest thing.",
+  "But clearly...\nthey've never met Nyasa Sharma.",
+  "See?\nEven science struggles to explain you sometimes.",
+];
+
+function normalizePassword(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201c\u201d]/g, '"')
+    .replace(/[\s_]+/g, "-");
+}
+
+function readStorageJson(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch (error) {
+    return fallback;
+  }
+}
+
+function writeStorageJson(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (error) {
+    // Ignore storage write failures so the site still works as a static page.
+  }
+}
+
+function getStoredAccess() {
+  return readStorageJson(ACCESS_KEY, null);
+}
+
+function setStoredAccess(session) {
+  writeStorageJson(ACCESS_KEY, session);
+}
+
+function clearStoredAccess() {
+  localStorage.removeItem(ACCESS_KEY);
+}
+
+function getPasswordState() {
+  return readStorageJson(PASSWORD_STATE_KEY, { usedPasswords: {} });
+}
+
+function isPasswordUsed(passwordKey) {
+  const state = getPasswordState();
+  return Boolean(state.usedPasswords?.[passwordKey]);
+}
+
+function markPasswordUsed(passwordKey) {
+  const state = getPasswordState();
+  state.usedPasswords[passwordKey] = {
+    usedAt: new Date().toISOString(),
+  };
+  writeStorageJson(PASSWORD_STATE_KEY, state);
+}
+
+function logInteraction(session, action, detail = {}) {
+  if (!session?.key) return;
+
+  const logs = readStorageJson(PASSWORD_LOGS_KEY, {});
+  const existing = logs[session.key] || {
+    passwordKey: session.key,
+    label: session.label,
+    oneTime: session.oneTime,
+    events: [],
+  };
+
+  existing.events.push({
+    timestamp: new Date().toISOString(),
+    action,
+    detail,
+  });
+
+  logs[session.key] = existing;
+  writeStorageJson(PASSWORD_LOGS_KEY, logs);
+}
+
+function useReducedMotionPreference() {
+  const [reducedMotion, setReducedMotion] = useState(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setReducedMotion(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+
+  return reducedMotion;
+}
+
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
 }
 
 function ripple(event) {
+  if (!event?.currentTarget) return;
   const button = event.currentTarget;
   const rect = button.getBoundingClientRect();
   const span = document.createElement("span");
@@ -67,12 +200,14 @@ function ripple(event) {
   setTimeout(() => span.remove(), 700);
 }
 
-function MagneticButton({ children, className, onClick, evasive, href }) {
+function MagneticButton({ children, className, onClick, evasive, href, reducedMotion, track }) {
   const ref = useRef(null);
 
   useEffect(() => {
     const el = ref.current;
-    if (!el) return;
+    const canHover = window.matchMedia("(pointer: fine)").matches;
+    if (!el || reducedMotion || !canHover) return undefined;
+
     const move = (event) => {
       const rect = el.getBoundingClientRect();
       const x = event.clientX - (rect.left + rect.width / 2);
@@ -80,36 +215,45 @@ function MagneticButton({ children, className, onClick, evasive, href }) {
       const strength = evasive ? -0.34 : 0.18;
       el.style.transform = `translate(${x * strength}px, ${y * strength}px)`;
     };
+
     const leave = () => {
       el.style.transform = "";
     };
+
     el.addEventListener("mousemove", move);
     el.addEventListener("mouseleave", leave);
+
     return () => {
       el.removeEventListener("mousemove", move);
       el.removeEventListener("mouseleave", leave);
     };
-  }, [evasive]);
+  }, [evasive, reducedMotion]);
 
   const props = {
     ref,
     className: cx("btn", className),
     onClick: (event) => {
       ripple(event);
+      track?.(event);
       onClick?.(event);
+
       if (href) {
         const target = document.querySelector(href);
         if (window.__lenis && target) window.__lenis.scrollTo(target, { offset: 0 });
-        else target?.scrollIntoView({ behavior: "smooth" });
+        else target?.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth" });
       }
     },
   };
+
   return h("button", props, children);
 }
 
-function ParticleField() {
-  const particles = useMemo(() => (
-    Array.from({ length: window.matchMedia("(max-width: 720px)").matches ? 18 : 30 }, (_, i) => ({
+function ParticleField({ reducedMotion }) {
+  const particles = useMemo(() => {
+    if (reducedMotion) return [];
+
+    const count = window.matchMedia("(max-width: 720px)").matches ? 18 : 30;
+    return Array.from({ length: count }, (_, i) => ({
       id: i,
       left: Math.random() * 100,
       top: Math.random() * 100,
@@ -117,48 +261,55 @@ function ParticleField() {
       dx: `${-35 + Math.random() * 70}px`,
       dy: `${-45 + Math.random() * 90}px`,
       delay: `${Math.random() * -8}s`,
-    }))
-  ), []);
+    }));
+  }, [reducedMotion]);
+
+  if (!particles.length) return null;
 
   return h("div", { className: "particle-field", "aria-hidden": true },
-    particles.map((p) => h("span", {
-      key: p.id,
+    particles.map((particle) => h("span", {
+      key: particle.id,
       className: "particle",
       style: {
-        left: `${p.left}%`,
-        top: `${p.top}%`,
-        "--speed": `${p.speed}s`,
-        "--dx": p.dx,
-        "--dy": p.dy,
-        animationDelay: p.delay,
+        left: `${particle.left}%`,
+        top: `${particle.top}%`,
+        "--speed": `${particle.speed}s`,
+        "--dx": particle.dx,
+        "--dy": particle.dy,
+        animationDelay: particle.delay,
       },
     })),
   );
 }
 
-function ButterflyField() {
-  const butterflies = useMemo(() => (
-    Array.from({ length: window.matchMedia("(max-width: 720px)").matches ? 5 : 8 }, (_, i) => ({
+function ButterflyField({ reducedMotion }) {
+  const butterflies = useMemo(() => {
+    if (reducedMotion) return [];
+
+    const count = window.matchMedia("(max-width: 720px)").matches ? 5 : 8;
+    return Array.from({ length: count }, (_, i) => ({
       id: i,
       left: 4 + Math.random() * 92,
       top: 18 + Math.random() * 74,
       delay: `${Math.random() * -9}s`,
       speed: `${7 + Math.random() * 8}s`,
       size: `${15 + Math.random() * 18}px`,
-    }))
-  ), []);
+    }));
+  }, [reducedMotion]);
+
+  if (!butterflies.length) return null;
 
   return h("div", { className: "butterfly-field", "aria-hidden": true },
-    butterflies.map((b) => h("span", {
-      key: b.id,
+    butterflies.map((butterfly) => h("span", {
+      key: butterfly.id,
       className: "butterfly",
       style: {
-        left: `${b.left}%`,
-        top: `${b.top}%`,
-        width: b.size,
-        height: b.size,
-        animationDuration: b.speed,
-        animationDelay: b.delay,
+        left: `${butterfly.left}%`,
+        top: `${butterfly.top}%`,
+        width: butterfly.size,
+        height: butterfly.size,
+        animationDuration: butterfly.speed,
+        animationDelay: butterfly.delay,
       },
     })),
   );
@@ -179,35 +330,140 @@ function Loader() {
   }, h("div", { className: "loader-mark" }));
 }
 
-function Navbar({ light, setLight, soundOn, toggleSound }) {
+function AccessGate({ onAuthenticated }) {
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    document.body.classList.add("auth-locked");
+    return () => document.body.classList.remove("auth-locked");
+  }, []);
+
+  useEffect(() => {
+    const session = getStoredAccess();
+    if (session?.key && PASSWORDS[session.key]) {
+      onAuthenticated(session);
+      return;
+    }
+    clearStoredAccess();
+    setLoading(false);
+  }, [onAuthenticated]);
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    if (!password.trim()) {
+      setError("Enter password");
+      return;
+    }
+
+    setSubmitting(true);
+    setError("");
+
+    const passwordKey = normalizePassword(password);
+    const profile = PASSWORDS[passwordKey];
+
+    if (!profile) {
+      setError("Wrong password");
+      setSubmitting(false);
+      return;
+    }
+
+    if (profile.oneTime && isPasswordUsed(passwordKey)) {
+      setError("This password was already used on this device.");
+      setSubmitting(false);
+      return;
+    }
+
+    if (profile.oneTime) {
+      markPasswordUsed(passwordKey);
+    }
+
+    const session = {
+      key: passwordKey,
+      label: profile.label,
+      oneTime: profile.oneTime,
+      grantedAt: new Date().toISOString(),
+    };
+
+    setStoredAccess(session);
+    logInteraction(session, "access_granted", {
+      passwordKey,
+      label: profile.label,
+      oneTime: profile.oneTime,
+    });
+    onAuthenticated(session);
+    setSubmitting(false);
+  };
+
+  return h("main", { className: "access-shell" },
+    h("div", { className: "access-backdrop", "aria-hidden": true }),
+    h("section", { className: "access-panel glass-panel" },
+      h("h1", { className: "access-title" }, "Enter password"),
+      h("form", { className: "access-form", onSubmit: handleSubmit },
+        h("input", {
+          id: "site-password",
+          className: "access-input",
+          type: "password",
+          autoComplete: "off",
+          placeholder: "Enter password",
+          value: password,
+          disabled: loading || submitting,
+          onChange: (event) => setPassword(event.target.value),
+        }),
+        h("button", {
+          className: "btn primary access-submit",
+          type: "submit",
+          disabled: loading || submitting,
+        }, loading ? "Checking..." : submitting ? "Entering..." : "Enter"),
+      ),
+      error && h("p", { className: "access-error" }, error),
+    ),
+  );
+}
+
+function Navbar({ light, setLight, soundOn, toggleSound, trackInteraction }) {
   return h(motion.nav, {
     className: "nav",
     initial: { y: -70, opacity: 0 },
     animate: { y: 0, opacity: 1 },
     transition: { delay: 0.75, duration: 0.9, ease: [0.22, 1, 0.36, 1] },
   },
-    h("div", { className: "brand" }, "For Nyasa Sharma"),
+    h("div", { className: "brand-wrap" },
+      h("div", { className: "brand" }, "For Nyasa Sharma"),
+    ),
     h("div", { className: "nav-links" },
-      navItems.map(([label, id]) => h("a", { key: id, href: `#${id}` }, label)),
+      navItems.map(([label, id]) => h("a", {
+        key: id,
+        href: `#${id}`,
+        onClick: () => trackInteraction("nav_jump", { target: id, label }),
+      }, label)),
     ),
     h("div", { className: "control-group" },
       h("button", {
         className: "icon-btn",
         title: soundOn ? "Ambient audio on" : "Ambient audio off",
-        onClick: toggleSound,
+        onClick: () => {
+          trackInteraction("toggle_audio", { enabled: !soundOn });
+          toggleSound();
+        },
         "aria-label": "Toggle ambient audio",
-      }, soundOn ? "♪" : "◇"),
+      }, soundOn ? "ON" : "OFF"),
       h("button", {
         className: "icon-btn",
         title: light ? "Switch to dark mode" : "Switch to light mode",
-        onClick: () => setLight((value) => !value),
+        onClick: () => {
+          trackInteraction("toggle_theme", { mode: light ? "dark" : "light" });
+          setLight((value) => !value);
+        },
         "aria-label": "Toggle theme",
-      }, light ? "☾" : "☼"),
+      }, light ? "Moon" : "Sun"),
     ),
   );
 }
 
-function Hero() {
+function Hero({ reducedMotion, trackInteraction }) {
   return h("section", { id: "hero", className: "section" },
     h(motion.div, {
       className: "hero-orbit parallax",
@@ -228,21 +484,31 @@ function Hero() {
         initial: { y: 46, opacity: 0, scale: 0.985 },
         animate: { y: 0, opacity: 1, scale: 1 },
         transition: { delay: 1.25, duration: 0.95, ease: [0.22, 1, 0.36, 1] },
-      }, "Nyasa… can we clear things out?"),
+      }, "Nyasa... can we clear things out?"),
       h(motion.p, {
         className: "lead mt-8",
         initial: { y: 34, opacity: 0 },
         animate: { y: 0, opacity: 1 },
         transition: { delay: 1.55, duration: 0.85 },
-      }, "I’ve been wanting to say a few things properly instead of letting misunderstandings speak for me. And maybe make you smile a little while I’m at it."),
+      }, "I've been wanting to say a few things properly instead of letting misunderstandings speak for me. And maybe make you smile a little while I'm at it."),
       h(motion.div, {
         className: "button-row",
         initial: { y: 24, opacity: 0 },
         animate: { y: 0, opacity: 1 },
         transition: { delay: 1.8, duration: 0.8 },
       },
-        h(MagneticButton, { className: "primary", href: "#apology" }, "Continue"),
-        h(MagneticButton, { evasive: true, href: "#questions" }, "Or Ignore Me Dramatically"),
+        h(MagneticButton, {
+          className: "primary",
+          href: "#apology",
+          reducedMotion,
+          track: () => trackInteraction("hero_cta", { label: "Continue" }),
+        }, "Continue"),
+        h(MagneticButton, {
+          evasive: true,
+          href: "#questions",
+          reducedMotion,
+          track: () => trackInteraction("hero_cta", { label: "Or Ignore Me Dramatically" }),
+        }, "Or Ignore Me Dramatically"),
       ),
     ),
     h("div", { className: "wave" }),
@@ -265,27 +531,33 @@ function Apology() {
   );
 }
 
-function QuestionCard({ question, index, onAnswer }) {
+function QuestionCard({ question, index, onAnswer, reducedMotion }) {
   const ref = useRef(null);
+
   useEffect(() => {
     const el = ref.current;
-    if (!el) return;
+    const canHover = window.matchMedia("(pointer: fine)").matches;
+    if (!el || reducedMotion || !canHover) return undefined;
+
     const move = (event) => {
       const rect = el.getBoundingClientRect();
       const x = (event.clientX - rect.left) / rect.width - 0.5;
       const y = (event.clientY - rect.top) / rect.height - 0.5;
       el.style.transform = `rotateY(${x * 9}deg) rotateX(${-y * 9}deg) translateY(-5px)`;
     };
+
     const leave = () => {
       el.style.transform = "";
     };
+
     el.addEventListener("mousemove", move);
     el.addEventListener("mouseleave", leave);
+
     return () => {
       el.removeEventListener("mousemove", move);
       el.removeEventListener("mouseleave", leave);
     };
-  }, []);
+  }, [reducedMotion]);
 
   return h(motion.article, {
     ref,
@@ -310,7 +582,7 @@ function QuestionCard({ question, index, onAnswer }) {
   );
 }
 
-function Questions({ addReply }) {
+function Questions({ addReply, trackInteraction, reducedMotion }) {
   return h("section", { id: "questions", className: "section" },
     h("div", { className: "section-inner" },
       h("p", { className: "eyebrow reveal" }, "Tiny cross-examination"),
@@ -320,7 +592,13 @@ function Questions({ addReply }) {
           key: question,
           question,
           index,
+          reducedMotion,
           onAnswer: (answer, event) => {
+            trackInteraction("question_answer", {
+              questionIndex: index + 1,
+              question,
+              answer,
+            });
             const replies = playfulReplies[answer];
             addReply(replies[Math.floor(Math.random() * replies.length)], event.clientX, event.clientY);
           },
@@ -338,10 +616,10 @@ function Honesty() {
         h("p", { className: "eyebrow" }, "Honest thoughts"),
         h("div", { className: "honest-copy" },
           h("p", null, "I also want to be honest about something."),
-          h("p", { className: "mt-8" }, "I know there are things you haven’t told me, and things regarding me that I ended up finding out myself."),
-          h("p", { className: "mt-8 text-[color:var(--muted)]" }, "But I never brought them up because I didn’t want things between us to get worse."),
+          h("p", { className: "mt-8" }, "I know there are things you haven't told me, and things regarding me that I ended up finding out myself."),
+          h("p", { className: "mt-8 text-[color:var(--muted)]" }, "But I never brought them up because I didn't want things between us to get worse."),
           h("p", { className: "mt-8" }, "Sometimes I ask questions even when I already know the answer, and getting lied to directly hurts more than simply hearing the truth."),
-          h("p", { className: "mt-8 text-[color:var(--accent)]" }, "I’m not asking for perfection. Just honesty."),
+          h("p", { className: "mt-8 text-[color:var(--accent)]" }, "I'm not asking for perfection. Just honesty."),
         ),
       ),
     ),
@@ -349,13 +627,15 @@ function Honesty() {
   );
 }
 
-function PolaroidCard({ item, index }) {
+function PolaroidCard({ item, index, reducedMotion }) {
   const ref = useRef(null);
   const [missing, setMissing] = useState(false);
 
   useEffect(() => {
     const el = ref.current;
-    if (!el) return;
+    const canHover = window.matchMedia("(pointer: fine)").matches;
+    if (!el || reducedMotion || !canHover) return undefined;
+
     const move = (event) => {
       const rect = el.getBoundingClientRect();
       const x = (event.clientX - rect.left) / rect.width - 0.5;
@@ -365,19 +645,22 @@ function PolaroidCard({ item, index }) {
       el.style.setProperty("--shift-x", `${x * 10}px`);
       el.style.setProperty("--shift-y", `${y * 10}px`);
     };
+
     const leave = () => {
       el.style.setProperty("--tilt-x", "0deg");
       el.style.setProperty("--tilt-y", "0deg");
       el.style.setProperty("--shift-x", "0px");
       el.style.setProperty("--shift-y", "0px");
     };
+
     el.addEventListener("pointermove", move);
     el.addEventListener("pointerleave", leave);
+
     return () => {
       el.removeEventListener("pointermove", move);
       el.removeEventListener("pointerleave", leave);
     };
-  }, []);
+  }, [reducedMotion]);
 
   return h(motion.figure, {
     ref,
@@ -409,13 +692,13 @@ function PolaroidCard({ item, index }) {
   );
 }
 
-function PolaroidShowcase() {
+function PolaroidShowcase({ reducedMotion }) {
   return h("section", { id: "polaroids", className: "section polaroid-section" },
     h("div", { className: "section-inner" },
       h("p", { className: "eyebrow reveal" }, "Small unfair advantage"),
-      h("h2", { className: "polaroid-title reveal" }, "Okay… you do make the website look better."),
+      h("h2", { className: "polaroid-title reveal" }, "Okay... you do make the website look better."),
       h("div", { className: "polaroid-stage" },
-        polaroids.map((item, index) => h(PolaroidCard, { key: item.id, item, index })),
+        polaroids.map((item, index) => h(PolaroidCard, { key: item.id, item, index, reducedMotion })),
       ),
       h("p", { className: "polaroid-note reveal" }, "I still think these pictures are unfairly good."),
     ),
@@ -423,29 +706,35 @@ function PolaroidShowcase() {
   );
 }
 
-function ScienceSection() {
+function ScienceSection({ trackInteraction, reducedMotion }) {
   const [step, setStep] = useState(0);
   const [typed, setTyped] = useState("");
-  const lines = [
-    "As a PCM student…\nI think we’ve been taught the wrong science.",
-    "We were taught that the Sun is the hottest thing.",
-    "But clearly…\nthey’ve never met Nyasa Sharma.",
-    "See?\nEven science struggles to explain you sometimes.",
-  ];
 
   useEffect(() => {
     let cursor = 0;
     setTyped("");
+
+    if (reducedMotion) {
+      setTyped(scienceLines[step]);
+      return undefined;
+    }
+
     const interval = setInterval(() => {
       cursor += 1;
-      setTyped(lines[step].slice(0, cursor));
-      if (cursor >= lines[step].length) clearInterval(interval);
+      setTyped(scienceLines[step].slice(0, cursor));
+      if (cursor >= scienceLines[step].length) clearInterval(interval);
     }, step === 2 ? 28 : 34);
+
     return () => clearInterval(interval);
-  }, [step]);
+  }, [reducedMotion, step]);
 
   const next = () => {
-    if (step === 2) {
+    trackInteraction("science_step", {
+      fromStep: step,
+      toStep: Math.min(step + 1, 3),
+    });
+
+    if (step === 2 && !reducedMotion) {
       document.body.animate([
         { transform: "translateX(0)" },
         { transform: "translateX(-7px)" },
@@ -453,6 +742,7 @@ function ScienceSection() {
         { transform: "translateX(0)" },
       ], { duration: 240 });
     }
+
     setStep((value) => Math.min(value + 1, 3));
   };
 
@@ -461,7 +751,7 @@ function ScienceSection() {
       h("p", { className: "eyebrow reveal" }, "Hidden file: Scientific Discovery"),
       h("div", { className: cx("science-stage glass-panel reveal", step === 2 && "heatwave") },
         h("div", { className: "science-grid" }),
-        ["ΔNyasa > ΔSun", "PCM ≠ Prepared Calm Mind", "Q = mc(Nyasa mood)", "anger°C → undefined", "truth > drama"].map((formula, i) =>
+        ["DNyasa > DSun", "PCM != Prepared Calm Mind", "Q = mc(Nyasa mood)", "angerC -> undefined", "truth > drama"].map((formula, i) =>
           h("span", {
             key: formula,
             className: "formula",
@@ -483,15 +773,20 @@ function ScienceSection() {
           },
             h("h2", { className: "type-text whitespace-pre-line" }, typed),
             step === 2 && h("div", { className: "heat-wrap" },
-              h("p", { className: "lead mx-auto" }, "Because somehow, your anger reaches temperatures physics still can’t explain."),
+              h("p", { className: "lead mx-auto" }, "Because somehow, your anger reaches temperatures physics still can't explain."),
               h("div", { className: "meter" }, h("div", { className: "meter-fill" })),
-              h("div", { className: "alert" }, "⚠ temperature exceeded"),
+              h("div", { className: "alert" }, "temperature exceeded"),
             ),
             step === 3 && h("p", { className: "lead mx-auto mt-8" }, "Unexpected. Accurate. Slightly dangerous."),
             step < 3 && h("div", { className: "button-row justify-center" },
-              h(MagneticButton, { className: "primary", onClick: next },
-                step === 0 ? "Why?" : step === 1 ? "But?" : "Okay okay, calm down 😭",
-              ),
+              h(MagneticButton, {
+                className: "primary",
+                onClick: next,
+                reducedMotion,
+                track: () => trackInteraction("science_button", {
+                  label: step === 0 ? "Why?" : step === 1 ? "But?" : "Okay okay, calm down",
+                }),
+              }, step === 0 ? "Why?" : step === 1 ? "But?" : "Okay okay, calm down"),
             ),
           ),
         ),
@@ -501,16 +796,18 @@ function ScienceSection() {
   );
 }
 
-function LighterEnding({ addReply }) {
+function LighterEnding({ addReply, trackInteraction, reducedMotion }) {
   return h("section", { id: "lighter", className: "section" },
     h("div", { className: "section-inner" },
       h("p", { className: "eyebrow reveal" }, "Breathing room"),
-      h("h2", { className: "text-5xl md:text-8xl font-extrabold leading-none max-w-5xl reveal" }, "Anyway… this website became way more dramatic than I originally planned."),
-      h("p", { className: "lead mt-8 reveal" }, "But if you’ve read this far, I’m assuming you don’t completely hate me yet. Maybe there’s even one tiny butterfly pretending to be neutral."),
+      h("h2", { className: "text-5xl md:text-8xl font-extrabold leading-none max-w-5xl reveal" }, "Anyway... this website became way more dramatic than I originally planned."),
+      h("p", { className: "lead mt-8 reveal" }, "But if you've read this far, I'm assuming you don't completely hate me yet. Maybe there's even one tiny butterfly pretending to be neutral."),
       h("div", { className: "button-row reveal" },
-        ["Fair Point", "Still Processing", "You’re Lucky This Website Looks Cool"].map((label) =>
+        ["Fair Point", "Still Processing", "You're Lucky This Website Looks Cool"].map((label) =>
           h(MagneticButton, {
             key: label,
+            reducedMotion,
+            track: () => trackInteraction("lighter_ending", { label }),
             onClick: (event) => addReply(label === "Fair Point" ? "A fair point has entered the chat." : label, event.clientX, event.clientY),
           }, label),
         ),
@@ -520,43 +817,56 @@ function LighterEnding({ addReply }) {
   );
 }
 
-function FinalSection({ addReply }) {
+function FinalSection({ addReply, trackInteraction, reducedMotion }) {
   const [done, setDone] = useState(false);
   const [visibleLines, setVisibleLines] = useState(0);
   const finalLines = [
     "Thanks for reading this till the end, Nyasa.",
     "No matter what happens,",
     "I genuinely hope things get better between us.",
-    "And for the record…",
-    "you still look cute when you’re annoyed.",
+    "And for the record...",
+    "you still look cute when you're annoyed.",
   ];
 
   useEffect(() => {
-    if (!done) return;
+    if (!done) return undefined;
+
     setVisibleLines(0);
+
+    if (reducedMotion) {
+      setVisibleLines(finalLines.length);
+      document.body.classList.add("ending-calm");
+      return () => document.body.classList.remove("ending-calm");
+    }
+
     const delays = [450, 1250, 2050, 3500, 4300];
     const timers = delays.map((delay, index) => setTimeout(() => setVisibleLines(index + 1), delay));
     const calm = setTimeout(() => document.body.classList.add("ending-calm"), 500);
+
     return () => {
       timers.forEach(clearTimeout);
       clearTimeout(calm);
       document.body.classList.remove("ending-calm");
     };
-  }, [done]);
+  }, [done, finalLines.length, reducedMotion]);
 
   return h("section", { id: "final", className: "section" },
     h("div", { className: "section-inner ending-panel" },
       h("p", { className: "eyebrow reveal" }, "One last thing"),
-      h("h2", { className: "reveal" }, "So… Can we stop letting misunderstandings win?"),
+      h("h2", { className: "reveal" }, "So... Can we stop letting misunderstandings win?"),
       h("div", { className: "button-row justify-center reveal" },
-        ["Maybe", "We’ll See", "Only If You Stop Being Annoying"].map((label, index) =>
+        ["Maybe", "We'll See", "Only If You Stop Being Annoying"].map((label, index) =>
           h(MagneticButton, {
             key: label,
             className: index === 0 ? "primary" : "",
+            reducedMotion,
+            track: () => trackInteraction("final_answer", { label }),
             onClick: (event) => {
               addReply(finalReplies[index], event.clientX, event.clientY);
               setDone(true);
-              gsap.fromTo(".mesh", { scale: 1.04, opacity: 0.86 }, { scale: 1, opacity: 1, duration: 1.2, ease: "power3.out" });
+              if (!reducedMotion) {
+                gsap.fromTo(".mesh", { scale: 1.04, opacity: 0.86 }, { scale: 1, opacity: 1, duration: 1.2, ease: "power3.out" });
+              }
             },
           }, label),
         ),
@@ -596,13 +906,18 @@ function FloatingReplies({ replies }) {
   );
 }
 
-function App() {
+function Experience({ access }) {
+  const reducedMotion = useReducedMotionPreference();
   const [light, setLight] = useState(false);
   const [soundOn, setSoundOn] = useState(false);
   const [replies, setReplies] = useState([]);
   const [flutter, setFlutter] = useState([]);
   const audioRef = useRef(null);
   const lastFlutter = useRef(0);
+
+  const trackInteraction = (action, detail = {}) => {
+    logInteraction(access, action, detail);
+  };
 
   useEffect(() => {
     document.body.classList.toggle("light", light);
@@ -612,6 +927,8 @@ function App() {
   }, [light]);
 
   useEffect(() => {
+    if (reducedMotion) return undefined;
+
     const root = document.documentElement;
     let frame = 0;
     const move = (event) => {
@@ -625,15 +942,18 @@ function App() {
         root.style.setProperty("--cursor-dy", dy);
       });
     };
+
     window.addEventListener("pointermove", move);
+
     return () => {
       cancelAnimationFrame(frame);
       window.removeEventListener("pointermove", move);
     };
-  }, []);
+  }, [reducedMotion]);
 
   useEffect(() => {
-    if (!window.Lenis) return;
+    if (reducedMotion || !window.Lenis) return undefined;
+
     const lenis = new Lenis({
       duration: 1.05,
       smoothWheel: true,
@@ -642,41 +962,52 @@ function App() {
       touchMultiplier: 1.1,
       easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
     });
+
     window.__lenis = lenis;
     let active = true;
     let frame = 0;
+
     const raf = (time) => {
       if (!active) return;
       lenis.raf(time);
       frame = requestAnimationFrame(raf);
     };
+
     frame = requestAnimationFrame(raf);
     lenis.on("scroll", ScrollTrigger.update);
+
     return () => {
       active = false;
       cancelAnimationFrame(frame);
       lenis.destroy();
       window.__lenis = null;
     };
-  }, []);
+  }, [reducedMotion]);
 
   useEffect(() => {
+    if (reducedMotion) return undefined;
+
     const onScroll = () => {
       const now = performance.now();
       if (now - lastFlutter.current < 520) return;
       lastFlutter.current = now;
+
       const id = `${now}-${Math.random()}`;
       const x = 18 + Math.random() * Math.max(window.innerWidth - 36, 40);
       const y = 92 + Math.random() * Math.min(window.innerHeight * 0.58, 500);
       setFlutter((items) => [...items.slice(-5), { id, x, y }]);
       setTimeout(() => setFlutter((items) => items.filter((item) => item.id !== id)), 2400);
     };
+
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+  }, [reducedMotion]);
 
   useEffect(() => {
+    if (reducedMotion) return undefined;
+
     gsap.registerPlugin(ScrollTrigger);
+
     gsap.to(".progress", {
       scaleX: 1,
       ease: "none",
@@ -687,6 +1018,7 @@ function App() {
         scrub: 0.2,
       },
     });
+
     gsap.utils.toArray(".reveal").forEach((el) => {
       gsap.fromTo(el,
         { autoAlpha: 0, y: 34, scale: 0.985 },
@@ -700,6 +1032,7 @@ function App() {
         },
       );
     });
+
     gsap.utils.toArray(".apology-line").forEach((line) => {
       gsap.to(line, {
         opacity: 1,
@@ -714,6 +1047,7 @@ function App() {
         },
       });
     });
+
     gsap.utils.toArray(".parallax").forEach((el) => {
       const speed = Number(el.dataset.speed || 0.1);
       gsap.to(el, {
@@ -722,7 +1056,17 @@ function App() {
         scrollTrigger: { trigger: el.closest(".section"), start: "top bottom", end: "bottom top", scrub: true },
       });
     });
+
     return () => ScrollTrigger.getAll().forEach((trigger) => trigger.kill());
+  }, [reducedMotion]);
+
+  useEffect(() => () => {
+    if (!audioRef.current) return;
+    audioRef.current.oscA.stop();
+    audioRef.current.oscB.stop();
+    audioRef.current.rain.stop();
+    audioRef.current.ctx.close();
+    audioRef.current = null;
   }, []);
 
   const toggleSound = () => {
@@ -738,6 +1082,7 @@ function App() {
       setSoundOn(false);
       return;
     }
+
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     const ctx = new AudioContext();
     const gain = ctx.createGain();
@@ -749,7 +1094,9 @@ function App() {
     const rainFilter = ctx.createBiquadFilter();
     const buffer = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
     const data = buffer.getChannelData(0);
+
     for (let i = 0; i < data.length; i += 1) data[i] = (Math.random() * 2 - 1) * 0.18;
+
     oscA.frequency.value = 92;
     oscB.frequency.value = 138;
     rain.buffer = buffer;
@@ -785,20 +1132,26 @@ function App() {
     h("div", { className: "mesh", "aria-hidden": true }),
     h("div", { className: "rays", "aria-hidden": true }),
     h(AmbientOrbs),
-    h(ParticleField),
-    h(ButterflyField),
+    h(ParticleField, { reducedMotion }),
+    h(ButterflyField, { reducedMotion }),
     h("div", { className: "cursor-glow", "aria-hidden": true }),
     h(motion.div, { className: "progress", initial: { scaleX: 0 } }),
     h(Loader),
-    h(Navbar, { light, setLight, soundOn, toggleSound }),
-    h(Hero),
+    h(Navbar, {
+      light,
+      setLight,
+      soundOn,
+      toggleSound,
+      trackInteraction,
+    }),
+    h(Hero, { reducedMotion, trackInteraction }),
     h(Apology),
-    h(Questions, { addReply }),
+    h(Questions, { addReply, trackInteraction, reducedMotion }),
     h(Honesty),
-    h(PolaroidShowcase),
-    h(ScienceSection),
-    h(LighterEnding, { addReply }),
-    h(FinalSection, { addReply }),
+    h(PolaroidShowcase, { reducedMotion }),
+    h(ScienceSection, { trackInteraction, reducedMotion }),
+    h(LighterEnding, { addReply, trackInteraction, reducedMotion }),
+    h(FinalSection, { addReply, trackInteraction, reducedMotion }),
     h(FloatingReplies, { replies }),
     h(AnimatePresence, null,
       flutter.map((item) => h(motion.span, {
@@ -812,6 +1165,16 @@ function App() {
       })),
     ),
   );
+}
+
+function App() {
+  const [access, setAccess] = useState(null);
+
+  if (!access) {
+    return h(AccessGate, { onAuthenticated: setAccess });
+  }
+
+  return h(Experience, { access });
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(h(App));

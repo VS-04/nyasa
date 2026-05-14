@@ -1,19 +1,17 @@
-# Nyasa Sharma Cinematic Apology Website
+Place Nyasa's three showcase photos in the project root with these exact filenames:
 
-A premium interactive apology website built as a static React experience with Tailwind's browser runtime, Framer Motion, and GSAP.
+- `nyasa-1.jpg`
+- `nyasa-2.jpg`
+- `nyasa-3.jpg`
 
-## Preview
+The site will show elegant placeholders until these files exist.
 
-The local preview server is running at:
+This version is fully static and can be hosted directly on GitHub Pages.
 
-http://localhost:4173
+Password access and button logging now use `localStorage`, so they work without any server.
 
-## Files
+Important:
 
-- `index.html` loads the app and vendored libraries.
-- `styles.css` contains the cinematic visual system, responsive layout, particles, glassmorphism, and animation keyframes.
-- `app.js` contains the React sections, Framer Motion transitions, GSAP scroll effects, playful interactions, audio toggle, theme toggle, and science surprise flow.
-- `react.production.min.js`, `react-dom.production.min.js`, `framer-motion.js`, `gsap.min.js`, `ScrollTrigger.min.js`, `lenis.min.js`, and `tailwindcdn.js` are the local browser builds used by the page.
-- `nyasa-1.jpg`, `nyasa-2.jpg`, and `nyasa-3.jpg` are the three Polaroid Showcase images.
-
-All project files now live in this single folder.
+- The reusable password works normally.
+- The three one-time passwords are only one-time per browser/device, not globally across all visitors.
+- Interaction logs are stored locally in that visitor's browser, not in repo JSON files.
