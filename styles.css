@@ -53,10 +53,6 @@ body {
   transition: background 800ms ease, color 800ms ease;
 }
 
-body.auth-locked {
-  overflow: hidden;
-}
-
 body.ending-calm .mesh,
 body.ending-calm .rays,
 body.ending-calm .butterfly-field {
@@ -76,131 +72,6 @@ button, a {
   position: relative;
   isolation: isolate;
   min-height: 100vh;
-}
-
-.access-shell {
-  position: relative;
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  overflow: hidden;
-}
-
-.access-backdrop {
-  position: absolute;
-  inset: -12vmax;
-  background:
-    radial-gradient(circle at 20% 20%, rgba(255, 184, 111, 0.18), transparent 22vmax),
-    radial-gradient(circle at 80% 12%, rgba(142, 228, 255, 0.18), transparent 24vmax),
-    radial-gradient(circle at 50% 80%, rgba(214, 255, 125, 0.14), transparent 24vmax),
-    linear-gradient(145deg, rgba(7, 8, 13, 0.98), rgba(13, 16, 24, 0.98));
-  filter: blur(6px);
-  animation: meshDrift 24s ease-in-out infinite alternate;
-}
-
-.access-panel {
-  position: relative;
-  z-index: 2;
-  width: min(560px, 100%);
-  padding: clamp(24px, 4vw, 42px);
-  border-radius: 28px;
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03)),
-    rgba(10, 13, 20, 0.72);
-}
-
-.access-kicker {
-  margin: 0 0 12px;
-  color: var(--accent);
-  letter-spacing: 0.24em;
-  text-transform: uppercase;
-  font-size: 12px;
-}
-
-.access-title {
-  margin: 0;
-  font-size: clamp(2.4rem, 8vw, 4.4rem);
-  line-height: 0.94;
-}
-
-.access-copy {
-  margin: 18px 0 0;
-  color: var(--muted);
-  font-size: 1.05rem;
-  line-height: 1.7;
-}
-
-.access-chip-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 20px;
-}
-
-.access-chip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--muted);
-  min-height: 32px;
-  padding: 0 12px;
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.access-form {
-  display: grid;
-  gap: 12px;
-  margin-top: 28px;
-}
-
-.access-label {
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.access-input {
-  width: 100%;
-  min-height: 54px;
-  border-radius: 18px;
-  border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.07);
-  color: var(--text);
-  padding: 0 16px;
-  font: inherit;
-  outline: none;
-  transition: border-color 220ms ease, box-shadow 220ms ease, background 220ms ease;
-}
-
-.access-input:focus {
-  border-color: color-mix(in srgb, var(--accent) 58%, var(--line));
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent);
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.access-submit {
-  width: 100%;
-  justify-content: center;
-}
-
-.access-error,
-.access-note {
-  margin: 14px 0 0;
-  font-size: 0.95rem;
-  line-height: 1.6;
-}
-
-.access-error {
-  color: #ffb6b1;
-}
-
-.access-note {
-  color: var(--muted);
 }
 
 .mesh {
@@ -413,13 +284,6 @@ button, a {
   box-shadow: 0 18px 50px var(--shadow);
 }
 
-.brand-wrap {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-
 .nav-links {
   display: flex;
   gap: 4px;
@@ -454,9 +318,8 @@ button, a {
 }
 
 .icon-btn {
-  min-width: 38px;
+  width: 38px;
   height: 38px;
-  padding: 0 12px;
   display: inline-grid;
   place-items: center;
   border-radius: 999px;
@@ -509,6 +372,17 @@ button, a {
   max-width: 1040px;
 }
 
+#hero .section-inner {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+}
+
+#hero .lead {
+  margin-left: auto;
+  margin-right: auto;
+}
+
 .eyebrow {
   color: var(--accent);
   text-transform: uppercase;
@@ -531,6 +405,14 @@ button, a {
   margin-top: 34px;
 }
 
+.hero-actions {
+  justify-content: center;
+}
+
+.hero-actions .btn {
+  min-width: 176px;
+}
+
 .btn {
   position: relative;
   overflow: hidden;
@@ -551,19 +433,13 @@ button, a {
   background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 35%, transparent), var(--panel));
 }
 
-.btn:disabled,
-.icon-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-}
-
 .btn:hover {
   transform: translateY(-3px);
   background: var(--panel-strong);
 }
 
-.btn .ripple {
+.btn .ripple,
+.mini-btn .ripple {
   position: absolute;
   width: 12px;
   height: 12px;
@@ -615,15 +491,28 @@ button, a {
 
 .question-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(220px, 1fr));
+  grid-template-columns: repeat(7, minmax(232px, 1fr));
   gap: 16px;
   overflow-x: auto;
   padding: 4px 2px 18px;
   scroll-snap-type: x mandatory;
 }
 
+.questions-section:before {
+  content: "";
+  position: absolute;
+  inset: 9% 5%;
+  background:
+    radial-gradient(circle at 18% 34%, color-mix(in srgb, var(--accent-2) 20%, transparent), transparent 30%),
+    radial-gradient(circle at 78% 44%, color-mix(in srgb, var(--accent) 20%, transparent), transparent 34%),
+    linear-gradient(135deg, transparent, color-mix(in srgb, var(--accent-3) 8%, transparent), transparent);
+  opacity: 0.78;
+  filter: blur(20px);
+  pointer-events: none;
+}
+
 .question-card {
-  min-height: 245px;
+  min-height: 292px;
   scroll-snap-align: center;
   padding: 18px;
   display: flex;
@@ -634,23 +523,50 @@ button, a {
   will-change: transform;
 }
 
+.question-card:after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(circle at 50% 0, color-mix(in srgb, var(--accent) 34%, transparent), transparent 55%);
+  transition: opacity 260ms ease;
+}
+
 .question-card:hover {
   border-color: color-mix(in srgb, var(--accent) 54%, var(--line));
   box-shadow: 0 30px 90px var(--shadow), 0 0 42px color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
+.question-card.answered {
+  border-color: color-mix(in srgb, var(--accent-2) 60%, var(--line));
+  animation: cardGlow 1100ms ease-out;
+}
+
+.question-card.answered:after,
+.question-card.saving:after {
+  opacity: 1;
+}
+
 .question-card h3 {
-  font-size: 1.15rem;
+  font-size: 1.1rem;
   line-height: 1.25;
+  position: relative;
+  z-index: 1;
 }
 
 .answer-bank {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+  position: relative;
+  z-index: 1;
 }
 
 .mini-btn {
+  position: relative;
+  overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: rgba(255,255,255,0.05);
@@ -658,7 +574,7 @@ button, a {
   padding: 9px 11px;
   cursor: pointer;
   font-size: 12px;
-  transition: transform 200ms ease, background 200ms ease;
+  transition: transform 200ms ease, background 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
 }
 
 .mini-btn:hover {
@@ -666,9 +582,44 @@ button, a {
   background: var(--panel-strong);
 }
 
-.floating-reply {
+.mini-btn.selected {
+  border-color: color-mix(in srgb, var(--accent-2) 68%, var(--line));
+  background: color-mix(in srgb, var(--accent-2) 18%, var(--panel-strong));
+  box-shadow: 0 0 24px color-mix(in srgb, var(--accent-2) 24%, transparent);
+}
+
+.mini-btn:disabled {
+  cursor: wait;
+  opacity: 0.74;
+}
+
+.question-reaction {
+  position: relative;
+  z-index: 1;
+  min-height: 1.4em;
+  margin: 10px 0 0;
+  color: color-mix(in srgb, var(--accent-2) 78%, var(--text));
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.reply-burst {
   position: fixed;
   z-index: 70;
+  pointer-events: none;
+}
+
+.response-particle {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.floating-reply {
+  position: absolute;
   pointer-events: none;
   padding: 11px 14px;
   border-radius: 999px;
@@ -1082,6 +1033,12 @@ button, a {
   to { transform: scale(1.04); box-shadow: 0 0 30px rgba(255,111,97,.25); }
 }
 
+@keyframes cardGlow {
+  0% { box-shadow: 0 20px 60px var(--shadow), 0 0 0 color-mix(in srgb, var(--accent-2) 0%, transparent); }
+  45% { box-shadow: 0 28px 86px var(--shadow), 0 0 56px color-mix(in srgb, var(--accent-2) 34%, transparent); }
+  100% { box-shadow: 0 24px 90px var(--shadow), 0 0 18px color-mix(in srgb, var(--accent-2) 12%, transparent); }
+}
+
 @keyframes heatwave {
   0%, 100% { filter: blur(0) contrast(1); transform: skewX(0deg); }
   50% { filter: blur(.5px) contrast(1.15); transform: skewX(-1.5deg); }
@@ -1120,7 +1077,7 @@ button, a {
   }
 
   .question-grid {
-    grid-template-columns: repeat(5, minmax(255px, 78vw));
+    grid-template-columns: repeat(7, minmax(255px, 78vw));
   }
 
   .ambient-orb {
